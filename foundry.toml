@@ -1,0 +1,13 @@
+[profile.default]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+libs = ["node_modules", "lib"]
+
+[rpc_endpoints]
+arbitrum = "${RPC_URL}"
+polygon  = "${RPC_POLYGON}"
+
+[etherscan]
+arbitrum = { key = "${ARBISCAN_KEY}", chain = 42161 }
+polygon = { key = "${POLYGONSCAN_KEY}", chain = 137 }
