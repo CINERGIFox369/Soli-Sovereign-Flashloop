@@ -1,0 +1,30 @@
+# Foundry/Hardhat/Solidity .gitignore
+# Build and cache
+out/
+cache/
+artifacts/
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Others
+*.log
+*.tmp
+*.swp
