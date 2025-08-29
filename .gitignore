@@ -1,3 +1,33 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+
+# TypeScript build
+*.tsbuildinfo
+
+# Docker
+.dockerignore
+
+# Foundry / Solidity build artifacts
+out/
+cache/
+
+# Logs and runtime artifacts
+logs/
+broadcast/
+
+# Environment and secrets
+.env
+local.settings.json
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
 (# Local environment overrides for secrets)
 .env.local
 .env.*.local

@@ -53,8 +53,36 @@ async function main() {
   const provider = new ethers.JsonRpcProvider(RPC);
   // Support multiple gas wallets to parallelize nonces and avoid single-signer bottleneck
   const gasKeys = (process.env.GAS_WALLETS || process.env.PRIVATE_KEY || process.env.PRIV_KEY || "").split(",").map(s => s.trim()).filter(Boolean);
-  if (gasKeys.length === 0) throw new Error("No gas wallet private keys found in GAS_WALLETS or PRIVATE_KEY/PRIV_KEY");
-  const wallets = gasKeys.map(k => new ethers.Wallet(k, provider));
+  let wallets: ethers.Wallet[] = [];
+  if (gasKeys.length === 0) {
+    if (process.env.DRY_RUN === 'true') {
+      console.warn('No gas wallet private keys provided; creating ephemeral wallet for DRY_RUN (no real txs will be sent)');
+      const tmp = ethers.Wallet.createRandom();
+      wallets = [new ethers.Wallet(tmp.privateKey, provider)];
+    } else {
+      throw new Error("No gas wallet private keys found in GAS_WALLETS or PRIVATE_KEY/PRIV_KEY");
+    }
+  } else {
+    const created: ethers.Wallet[] = [];
+    for (const k of gasKeys) {
+      try {
+        created.push(new ethers.Wallet(k, provider));
+      } catch (err) {
+        console.warn('Invalid private key in GAS_WALLETS/PRIVATE_KEY - skipping one entry');
+      }
+    }
+    if (created.length === 0) {
+      if (process.env.DRY_RUN === 'true') {
+        console.warn('All provided private keys invalid; creating ephemeral wallet for DRY_RUN');
+        const tmp = ethers.Wallet.createRandom();
+        wallets = [new ethers.Wallet(tmp.privateKey, provider)];
+      } else {
+        throw new Error('No valid private keys found in GAS_WALLETS or PRIVATE_KEY/PRIV_KEY');
+      }
+    } else {
+      wallets = created;
+    }
+  }
   let walletIndex = 0;
 
   function nextWallet(): ethers.Wallet {
