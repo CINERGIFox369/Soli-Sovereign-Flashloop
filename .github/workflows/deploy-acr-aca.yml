@@ -1,65 +1,56 @@
 name: Build and deploy to Azure Container Apps
 
-name: Build and deploy to Azure Container Apps
-
 on:
   push:
     branches: [ main ]
 
 jobs:
-  name: Build and deploy to Azure Container Apps
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
+      REGISTRY_LOGIN_SERVER: ${{ secrets.ACR_NAME }}.azurecr.io
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  on:
-    push:
-      branches: [ main ]
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-  jobs:
-    build-and-deploy:
-      runs-on: ubuntu-latest
-      env:
-        IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
-        REGISTRY_LOGIN_SERVER: ${{ secrets.ACR_NAME }}.azurecr.io
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+      - name: Pre-deploy smoke - run simulator
+        run: ./.github/actions/smoke/run-sim.sh
 
-        - name: Set up Node.js
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20'
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-        - name: Pre-deploy smoke - run simulator
-          run: ./.github/actions/smoke/run-sim.sh
+      - name: Azure Docker login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
 
-        - name: Login to Azure
-          uses: azure/login@v1
-          with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}
 
-        - name: Azure Docker login
-          uses: azure/docker-login@v1
-          with:
-            login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
+      - name: Deploy to Azure Container App (update)
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}
+        run: |
+          # Ensure az containerapp extension is available
+          az extension add --name containerapp || true
+          # Login already provided by azure/login
+          az containerapp update --name ${{ secrets.CONTAINERAPP_NAME }} --resource-group ${{ secrets.RESOURCE_GROUP }} --image $IMAGE || (
+            echo 'Container App update failed; you may need to create the container app first' && exit 1
+          )
 
-        - name: Build and push image
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            file: ./Dockerfile
-            push: true
-            tags: |
-              ${{ env.IMAGE_NAME }}
-
-        - name: Deploy to Azure Container App (update)
-          env:
-            IMAGE: ${{ env.IMAGE_NAME }}
-          run: |
-            # Ensure az containerapp extension is available
-            az extension add --name containerapp || true
-            # Login already provided by azure/login
-            az containerapp update --name ${{ secrets.CONTAINERAPP_NAME }} --resource-group ${{ secrets.RESOURCE_GROUP }} --image $IMAGE || (
-              echo 'Container App update failed; you may need to create the container app first' && exit 1
-            )
-
-        - name: Notify deployment
-          run: echo "Deployed ${{ env.IMAGE_NAME }} to Container App ${{ secrets.CONTAINERAPP_NAME }}"
+      - name: Notify deployment
+        run: echo "Deployed ${{ env.IMAGE_NAME }} to Container App ${{ secrets.CONTAINERAPP_NAME }}"
