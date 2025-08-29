@@ -1,0 +1,8 @@
+2025-08-29T09:34:57.648Z Not profitable size=5000000000 edge_bps=-127 threshold=150 method=v2_fallback
+2025-08-29T09:35:00.503Z Not profitable size=10000000000 edge_bps=-193 threshold=150 method=v2_fallback
+2025-08-29T09:35:03.283Z Not profitable size=20000000000 edge_bps=-323 threshold=150 method=v2_fallback
+2025-08-29T09:35:03.284Z Emergency stop: 3 consecutive non-profitable attempts reached (limit=3). Pausing keeper.
+2025-08-29T10:25:05.174Z Not profitable size=5000000000 edge_bps=-127 threshold=150 method=v2_fallback
+2025-08-29T10:25:07.958Z Not profitable size=10000000000 edge_bps=-193 threshold=150 method=v2_fallback
+2025-08-29T10:25:09.228Z Not profitable size=20000000000 edge_bps=-323 threshold=150 method=v2_fallback
+2025-08-29T10:25:09.229Z Emergency stop: 3 consecutive non-profitable attempts reached (limit=3). Pausing keeper.
