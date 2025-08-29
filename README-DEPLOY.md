@@ -48,5 +48,7 @@ minOut by default — set your own `minOut` safety margins when you wire a fixed
 - Polygon's gas token is **POL** (formerly MATIC). Fund with POL for Polygon and ETH for Arbitrum.
 - For MEV hygiene on L2s, prefer private-tx RPCs from your provider; Flashbots Protect is L1‑focused.
 
+- CI note: the workflow includes a pre-deploy simulator smoke gate that runs `.github/actions/smoke/run-sim.sh` and fails the job if the simulator's "Avg successes/day" is below the `SIM_MIN_SUCCESS` threshold (default 1).
+
 ## Tests
 A placeholder fork test is included; extend it with real pairs and invariants before production.
