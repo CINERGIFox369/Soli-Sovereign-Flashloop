@@ -1,0 +1,10 @@
+# VCS
+.git
+.github
+
+# Node
+node_modules
+
+# Local env
+.env
+local.settings.json
