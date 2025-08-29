@@ -4,8 +4,14 @@ set -euo pipefail
 SIM_MIN=${SIM_MIN_SUCCESS:-1}
 echo "Simulator smoke check: min successes/day = $SIM_MIN"
 
-echo "Installing dependencies (ci)..."
-npm ci
+echo "Installing dependencies (prefer clean install)..."
+# Prefer a clean install, but fall back to npm install for environments where lockfile/install state differs
+if npm ci; then
+  echo "npm ci succeeded"
+else
+  echo "npm ci failed, falling back to npm install"
+  npm install
+fi
 
 echo "Running simulator (sim:mc)..."
 npm run sim:mc | tee sim-output.txt
