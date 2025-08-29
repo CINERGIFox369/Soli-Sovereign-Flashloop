@@ -17,9 +17,9 @@ contract DeployFlashLoop is Script {
         string memory CHAIN = vm.envString("CHAIN"); // "arbitrum" | "polygon"
 
         if (keccak256(bytes(CHAIN)) == keccak256("arbitrum")) {
-                AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
-                UNI_V3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-                V2_ROUTER = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506; // Sushi
+            AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
+            UNI_V3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+            V2_ROUTER = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506; // Sushi
         } else if (keccak256(bytes(CHAIN)) == keccak256("polygon")) {
             AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
             UNI_V3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;

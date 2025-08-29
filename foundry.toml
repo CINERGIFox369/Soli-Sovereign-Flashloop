@@ -5,7 +5,7 @@ optimizer_runs = 200
 libs = ["node_modules", "lib"]
 
 [rpc_endpoints]
-arbitrum = "${RPC_URL}"
+arbitrum = "${RPC_ARBITRUM}"
 polygon  = "${RPC_POLYGON}"
 
 [etherscan]
