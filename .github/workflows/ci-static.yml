@@ -1,0 +1,14 @@
+name: CI static placeholder
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Echo
+        run: echo "CI static placeholder - no static checks configured yet"

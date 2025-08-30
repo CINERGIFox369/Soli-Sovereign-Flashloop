@@ -9,7 +9,6 @@ dist/
 *.tsbuildinfo
 
 # Docker
-.dockerignore
 
 # Foundry / Solidity build artifacts
 out/
