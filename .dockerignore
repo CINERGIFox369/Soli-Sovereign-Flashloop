@@ -1,10 +1,137 @@
-# VCS
+# ===============================================
+# 🚀 Soli Sovereign Flash-Loop - Docker Ignore
+# Enterprise-grade container optimization
+# ===============================================
+
+# =============================================
+# VERSION CONTROL & CI/CD
+# =============================================
 .git
+.gitignore
 .github
+.gitmodules
 
-# Node
+# =============================================
+# NODE.JS & DEPENDENCIES
+# =============================================
 node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
 
-# Local env
+# =============================================
+# ENVIRONMENT & SECRETS
+# =============================================
 .env
+.env.*
+!.env.example
 local.settings.json
+.azure
+*.pfx
+*.p12
+*.key
+*.pem
+
+# =============================================
+# DEVELOPMENT FILES
+# =============================================
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# =============================================
+# DOCUMENTATION & REPORTS
+# =============================================
+docs/
+README*.md
+DEPLOYMENT*.md
+PROFITABILITY*.md
+PROJECT_OPTIMIZATION*.md
+WALLET_CONFIGURATION*.md
+FINAL_DEPLOYMENT*.md
+*.csv
+
+# =============================================
+# TESTING & QUALITY ASSURANCE
+# =============================================
+test/
+coverage/
+.nyc_output
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# =============================================
+# BUILD & COMPILATION ARTIFACTS
+# =============================================
+dist/
+out/
+build/
+cache/
+broadcast/
+.next/
+.nuxt/
+
+# =============================================
+# FOUNDRY & SMART CONTRACTS (DEV)
+# =============================================
+cache/
+lib/forge-std
+broadcast/
+.forge-cache
+
+# =============================================
+# LOGS & TEMPORARY FILES
+# =============================================
+logs/
+*.log
+.DS_Store
+Thumbs.db
+
+# =============================================
+# ANALYSIS & SIMULATION (NON-PRODUCTION)
+# =============================================
+sim/
+profitability_analysis.csv
+profitability_assessment.js
+real_world_analysis.js
+
+# =============================================
+# DASHBOARD & PUBLIC (BUILD SEPARATELY)
+# =============================================
+dashboard/
+public/
+src/status-reporter.ts
+
+# =============================================
+# DEPLOYMENT SCRIPTS (HOST-BASED)
+# =============================================
+deploy.ps1
+deploy.sh
+test-deploy.*
+infra/
+*.ps1
+*.sh
+
+# =============================================
+# PACKAGE MANAGERS
+# =============================================
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =============================================
+# OS & EDITOR FILES
+# =============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
