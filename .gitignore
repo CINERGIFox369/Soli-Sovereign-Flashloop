@@ -28,9 +28,12 @@ local.settings.json
 
 # macOS
 .DS_Store
-(# Local environment overrides for secrets)
+
+# Local environment overrides for secrets
 .env.local
 .env.*.local
 .env.*.secret
 .secrets
-node_modules
+
+# Simulation output files  
+sim-output.txt

@@ -1,0 +1,34 @@
+name: Configure Branch Protection
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.github/branch-protection.yml' ]
+  workflow_dispatch:
+
+jobs:
+  setup-branch-protection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Branch Protection Rules
+        run: |
+          echo "Branch protection should be configured with the following settings:"
+          echo ""
+          echo "Main Branch Protection Rules:"
+          echo "✓ Require pull request reviews before merging"
+          echo "✓ Require status checks to pass before merging"
+          echo "  - CI - Build and Test / build-and-test"
+          echo "  - Static Analysis / static-analysis"
+          echo "✓ Require branches to be up to date before merging"
+          echo "✓ Require conversation resolution before merging"
+          echo "✓ Restrict pushes that create files larger than 100MB"
+          echo "✓ Do not allow bypassing the above settings"
+          echo ""
+          echo "These rules help ensure:"
+          echo "- Code is reviewed before merging"
+          echo "- All tests pass before deployment"
+          echo "- Security checks are performed"
+          echo "- No direct pushes to main branch"
+          echo ""
+          echo "To apply these settings, go to:"
+          echo "Repository Settings → Branches → Add Protection Rule for 'main'"

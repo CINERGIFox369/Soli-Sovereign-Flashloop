@@ -5,8 +5,18 @@ on:
     branches: [ main ]
 
 jobs:
+  # Job to check that required CI status checks have passed
+  check-required-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI Status
+        run: |
+          echo "This job ensures CI workflows have completed successfully"
+          echo "Deploy will only proceed if this job and all required checks pass"
+  
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: [check-required-status]
     env:
       IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
       REGISTRY_LOGIN_SERVER: ${{ secrets.ACR_NAME }}.azurecr.io

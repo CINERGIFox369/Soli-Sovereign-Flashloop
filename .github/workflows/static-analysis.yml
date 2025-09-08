@@ -1,0 +1,55 @@
+name: Static Analysis
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type checking
+        run: npx tsc --noEmit
+
+      - name: Check for common security issues
+        run: |
+          echo "Checking for potential security issues..."
+          
+          # Check for hardcoded secrets in TypeScript files
+          if grep -r "0x[a-fA-F0-9]\{64\}" --include="*.ts" --include="*.js" script/ sim/ src/ || true; then
+            echo "⚠️ Found potential private keys in source code"
+          fi
+          
+          # Check for process.env usage without defaults
+          grep -r "process\.env\.[A-Z_]\+\s*)" --include="*.ts" script/ sim/ || true
+          
+          # Check for TODO/FIXME comments
+          if grep -r "TODO\|FIXME\|XXX" --include="*.ts" --include="*.js" script/ sim/ src/ || true; then
+            echo "ℹ️ Found TODO/FIXME comments - consider addressing before production"
+          fi
+          
+          echo "Static analysis completed"
+
+      - name: Verify no secrets in source
+        run: |
+          if grep -r "sk_\|pk_\|-----BEGIN" --include="*.ts" --include="*.js" --include="*.json" script/ sim/ src/ .env* 2>/dev/null || true; then
+            echo "❌ Potential secrets found in source code"
+            echo "Please review and remove any secrets from source code"
+            exit 1
+          fi
+          echo "✅ No obvious secrets detected in source code"
