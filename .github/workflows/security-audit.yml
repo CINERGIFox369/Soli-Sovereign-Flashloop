@@ -1,0 +1,147 @@
+name: 🔒 Security Audit & Compliance
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  security-events: write
+  contents: read
+  actions: read
+
+jobs:
+  dependency-security:
+    name: 🛡️ Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: |
+          echo "🔍 Scanning for vulnerable dependencies..."
+          npm audit --audit-level=high
+          npm audit --audit-level=moderate --json > audit-results.json || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: audit-results.json
+          retention-days: 30
+
+  container-security:
+    name: 🐳 Container Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image for scanning
+        run: |
+          docker build -t soli-security-scan:latest .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'soli-security-scan:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  secrets-scan:
+    name: 🔐 Secrets Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run GitLeaks scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  compliance-check:
+    name: 📋 Compliance Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Docker security
+        run: |
+          echo "🔒 Validating Dockerfile security practices..."
+          # Check for non-root user
+          if ! grep -q "USER" Dockerfile; then
+            echo "❌ Dockerfile should specify non-root USER"
+            exit 1
+          fi
+          
+          # Check for COPY/ADD best practices
+          if grep -q "COPY.*\*" Dockerfile; then
+            echo "⚠️ Avoid using wildcards in COPY commands"
+          fi
+          
+          echo "✅ Docker security validation passed"
+
+      - name: Environment security check
+        run: |
+          echo "🔍 Checking environment configuration..."
+          # Ensure no hardcoded secrets in env files
+          if find . -name "*.env*" -not -path "./node_modules/*" -exec grep -l "sk_\|pk_\|secret" {} \; | grep -v ".example"; then
+            echo "❌ Potential secrets found in environment files"
+            exit 1
+          fi
+          echo "✅ Environment security check passed"
+
+  security-report:
+    name: 📊 Security Report
+    runs-on: ubuntu-latest
+    needs: [dependency-security, container-security, secrets-scan, compliance-check]
+    if: always()
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "🔒 SECURITY AUDIT SUMMARY"
+          echo "========================="
+          echo "Date: $(date)"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "✅ Dependency Security: ${{ needs.dependency-security.result }}"
+          echo "✅ Container Security: ${{ needs.container-security.result }}"
+          echo "✅ Secrets Detection: ${{ needs.secrets-scan.result }}"
+          echo "✅ Compliance Check: ${{ needs.compliance-check.result }}"
+          echo ""
+          if [[ "${{ needs.dependency-security.result }}" == "success" && 
+                "${{ needs.container-security.result }}" == "success" && 
+                "${{ needs.secrets-scan.result }}" == "success" && 
+                "${{ needs.compliance-check.result }}" == "success" ]]; then
+            echo "🎉 ALL SECURITY CHECKS PASSED"
+          else
+            echo "🚨 SECURITY ISSUES DETECTED - REVIEW REQUIRED"
+          fi
