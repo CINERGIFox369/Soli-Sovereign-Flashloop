@@ -4,33 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-  "keeper": "node --loader ts-node/esm script/keeper.ts",
-  "build": "tsc --outDir dist",
-  "start": "node --enable-source-maps dist/script/keeper.js",
-  "sim": "node --loader ts-node/esm sim/size_optimizer.ts",
-<<<<<<< HEAD
-  "sim:mc": "node --loader ts-node/esm sim/simulator.ts"
-=======
-  "sim:mc": "node --loader ts-node/esm sim/simulator.ts",
-  "dashboard": "node --loader ts-node/esm dashboard/status-server.js",
-  "dashboard:dev": "nodemon --loader ts-node/esm dashboard/status-server.js",
-  "migrate-keys": "node --loader ts-node/esm scripts/migrate-keys.ts"
->>>>>>> fix/ci-oidc-on-origin
+    "keeper": "node --loader ts-node/esm script/keeper.ts",
+    "build": "tsc --outDir dist",
+    "start": "node --enable-source-maps dist/script/keeper.js",
+    "sim": "node --loader ts-node/esm sim/size_optimizer.ts",
+    "sim:mc": "node --loader ts-node/esm sim/simulator.ts",
+    "dashboard": "node --loader ts-node/esm dashboard/status-server.js",
+    "dashboard:dev": "nodemon --loader ts-node/esm dashboard/status-server.js",
+    "migrate-keys": "node --loader ts-node/esm scripts/migrate-keys.ts"
   },
   "dependencies": {
     "bignumber.js": "^9.1.2",
     "dotenv": "^16.4.5",
-<<<<<<< HEAD
-  "applicationinsights": "^3.6.11",
-    "ethers": "^6.13.2"
-=======
     "applicationinsights": "^3.6.11",
     "ethers": "^6.13.2",
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
     "@azure/keyvault-secrets": "^4.8.0",
     "@azure/identity": "^4.0.1"
->>>>>>> fix/ci-oidc-on-origin
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
