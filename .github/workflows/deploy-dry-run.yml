@@ -1,0 +1,133 @@
+name: 🧪 Soli Sovereign Flash-Loop - Dry Run Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options:
+        - dry-run
+        - staging
+
+env:
+  NODE_VERSION: '20'
+  REGISTRY_LOGIN_SERVER: "${{ secrets.ACR_NAME }}.azurecr.io"
+  IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
+  
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dry-run' }}
+    permissions:
+      id-token: write
+      contents: read
+      
+    steps:
+      - name: 🔍 Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: 🔐 Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🔑 Login to Azure Container Registry
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+        
+      - name: 🏗️ Build and push Docker image
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+          docker push ${{ env.IMAGE_NAME }}
+        working-directory: ./
+        
+      - name: 🌊 Create Container Apps Environment (if not exists)
+        run: |
+          # Check if environment exists
+          if ! az containerapp env show --name soli-env --resource-group ${{ secrets.RESOURCE_GROUP }} &>/dev/null; then
+            echo "Creating Container Apps environment..."
+            LAW_ID=$(az monitor log-analytics workspace show --name soli-law --resource-group ${{ secrets.RESOURCE_GROUP }} --query "id" -o tsv)
+            az containerapp env create \
+              --name soli-env \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --location eastus \
+              --logs-workspace-id "$LAW_ID"
+          else
+            echo "Container Apps environment already exists"
+          fi
+          
+      - name: 🚀 Deploy Container App (DRY RUN MODE)
+        run: |
+          # Check if container app exists
+          if az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} &>/dev/null; then
+            echo "Updating existing container app..."
+            az containerapp update \
+              --name soli-keeper-dry \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --image ${{ env.IMAGE_NAME }}
+          else
+            echo "Creating new container app in DRY RUN mode..."
+            az containerapp create \
+              --name soli-keeper-dry \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --environment soli-env \
+              --image ${{ env.IMAGE_NAME }} \
+              --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+              --cpu 1.0 \
+              --memory 2.0Gi \
+              --min-replicas 1 \
+              --max-replicas 3 \
+              --env-vars \
+                "DRY_RUN=true" \
+                "AZURE_KEY_VAULT_URL=https://soli-mainnet-kv.vault.azure.net/" \
+                "NETWORK_ID=42161" \
+                "RPC_URL=https://arb1.arbitrum.io/rpc" \
+                "MIN_EDGE_BPS=150" \
+                "MAX_DAILY_LOSS=100" \
+                "AAVE_LOAN_FRACTION=0.01" \
+                "CONFIRM_REAL=false"
+          fi
+          
+      - name: 🔗 Assign Managed Identity to Key Vault
+        run: |
+          # Get the container app's managed identity
+          PRINCIPAL_ID=$(az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --query "identity.principalId" -o tsv)
+          
+          if [ "$PRINCIPAL_ID" != "null" ] && [ -n "$PRINCIPAL_ID" ]; then
+            echo "Assigning Key Vault permissions to managed identity..."
+            az keyvault set-policy \
+              --name soli-mainnet-kv \
+              --object-id $PRINCIPAL_ID \
+              --secret-permissions get list
+          else
+            echo "No managed identity found, enabling it..."
+            az containerapp identity assign \
+              --name soli-keeper-dry \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --system-assigned
+              
+            # Get the new identity and assign permissions
+            PRINCIPAL_ID=$(az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --query "identity.principalId" -o tsv)
+            az keyvault set-policy \
+              --name soli-mainnet-kv \
+              --object-id $PRINCIPAL_ID \
+              --secret-permissions get list
+          fi
+          
+      - name: ✅ Deployment Summary
+        run: |
+          echo "🎉 Dry Run Deployment Complete!"
+          echo "📊 Container App: soli-keeper-dry"
+          echo "🔒 Mode: DRY_RUN=true (NO REAL TRADES)"
+          echo "🌍 Network: Arbitrum (Chain ID: 42161)"
+          echo "🔑 Key Vault: soli-mainnet-kv.vault.azure.net"
+          echo ""
+          echo "🔍 Monitor the deployment:"
+          echo "az containerapp logs show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --follow"
+          echo ""
+          echo "⚠️  This is a DRY RUN - no real transactions will be executed!"

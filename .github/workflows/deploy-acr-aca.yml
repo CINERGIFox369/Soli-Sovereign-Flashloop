@@ -1,38 +1,17 @@
-<<<<<<< HEAD
-name: Build and deploy to Azure Container Apps
+name: 🚀 Soli Sovereign Flash-Loop - Dry Run Deployment
 
 on:
   push:
-    branches: [ main ]
-
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    env:
-      IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
-      REGISTRY_LOGIN_SERVER: ${{ secrets.ACR_NAME }}.azurecr.io
-    steps:
-      - name: Checkout
-=======
-name: 🚀 Soli Sovereign Flash-Loop - Production Deployment
-
-on:
-  push:
-    branches: [ main, develop ]
-    tags: [ 'v*' ]
-  pull_request:
     branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
         description: 'Deployment environment'
         required: true
-        default: 'staging'
+        default: 'dry-run'
         type: choice
         options:
+        - dry-run
         - staging
         - production
       force_deploy:
@@ -44,6 +23,7 @@ on:
 env:
   NODE_VERSION: '20'
   REGISTRY_LOGIN_SERVER: "${{ secrets.ACR_NAME }}.azurecr.io"
+  IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
   
 jobs:
   # ===============================================
