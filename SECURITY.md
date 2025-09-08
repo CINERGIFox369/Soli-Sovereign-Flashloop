@@ -7,7 +7,11 @@
 
 How to purge secrets from git history (example using git-filter-repo):
 
+<<<<<<< HEAD
 1. Install git-filter-repo ([git-filter-repo documentation](https://github.com/newren/git-filter-repo))
+=======
+1. Install git-filter-repo (https://github.com/newren/git-filter-repo)
+>>>>>>> fix/ci-oidc-on-origin
 2. Run the filter to remove .env and local.settings.json from history:
 
 ```bash
@@ -18,6 +22,10 @@ git push --force --all
 git push --force --tags
 ```
 
+<<<<<<< HEAD
 If you prefer BFG, see the BFG Repo-Cleaner homepage: [BFG Repo-Cleaner homepage](https://rtyley.github.io/bfg-repo-cleaner/)
+=======
+If you prefer BFG, see the BFG Repo-Cleaner homepage: https://rtyley.github.io/bfg-repo-cleaner/
+>>>>>>> fix/ci-oidc-on-origin
 
 After history rewrite: rotate any credentials that may have been in those files.

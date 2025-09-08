@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol-i Sovereign Flash-loop Status Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #059669;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --border: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        .header {
+            background: var(--dark);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.running { background: var(--success); }
+        .status-dot.stopped { background: var(--danger); }
+        .status-dot.warning { background: var(--warning); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto auto auto auto;
+            gap: 1rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+        }
+
+        .card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .metric-value.positive { color: var(--success); }
+        .metric-value.negative { color: var(--danger); }
+        .metric-value.warning { color: var(--warning); }
+
+        .profit-summary {
+            grid-column: 1 / 4;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .profit-card {
+            background: linear-gradient(135deg, var(--primary), #3b82f6);
+            color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .profit-card h4 {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .profit-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .profit-card .change {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .trades-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .trade-item {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .trade-item:hover {
+            background: #f9fafb;
+        }
+
+        .trade-item:last-child {
+            border-bottom: none;
+        }
+
+        .trade-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+        }
+
+        .trade-status.success { background: var(--success); }
+        .trade-status.error { background: var(--danger); }
+        .trade-status.pending { background: var(--warning); }
+
+        .trade-details {
+            flex: 1;
+        }
+
+        .trade-time {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .trade-info {
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .trade-profit {
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .dex-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .dex-item {
+            background: #f9fafb;
+            border-radius: 6px;
+            padding: 0.75rem;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .dex-item.healthy { border-color: var(--success); }
+        .dex-item.unhealthy { border-color: var(--danger); }
+        .dex-item.unknown { border-color: var(--border); }
+
+        .dex-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .dex-health {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .current-operation {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .operation-status {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .operation-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .operation-detail {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .operation-detail strong {
+            display: block;
+            font-size: 1rem;
+            opacity: 1;
+            margin-top: 0.25rem;
+        }
+
+        .gas-chart {
+            grid-column: 2 / 4;
+        }
+
+        .circuit-breaker {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .circuit-breaker.triggered {
+            background: #fee2e2;
+            border-color: var(--danger);
+        }
+
+        .circuit-breaker.emergency {
+            background: #dc2626;
+            color: white;
+            border-color: #991b1b;
+        }
+
+        .error-log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+
+        .error-item {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+            border-left: 3px solid var(--danger);
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        .responsive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .profit-summary {
+                grid-column: 1;
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .gas-chart {
+                grid-column: 1;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🚀 Sol-i Sovereign Flash-loop Status Dashboard</h1>
+        <div class="status-indicator">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Connecting...</span>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <!-- Profit Summary -->
+        <div class="profit-summary">
+            <div class="profit-card">
+                <h4>Net Profit</h4>
+                <div class="value" id="net-profit">$0.00</div>
+                <div class="change" id="profit-change">+0.00%</div>
+            </div>
+            <div class="profit-card">
+                <h4>Total Trades</h4>
+                <div class="value" id="total-trades">0</div>
+                <div class="change" id="success-rate">0% success</div>
+            </div>
+            <div class="profit-card">
+                <h4>Current Edge</h4>
+                <div class="value" id="current-edge">0</div>
+                <div class="change">basis points</div>
+            </div>
+            <div class="profit-card">
+                <h4>Uptime</h4>
+                <div class="value" id="uptime">00:00:00</div>
+                <div class="change" id="iteration">Iteration 0</div>
+            </div>
+        </div>
+
+        <!-- Current Operation -->
+        <div class="card">
+            <div class="current-operation">
+                <div class="operation-status" id="operation-status">Idle</div>
+                <div class="operation-details">
+                    <div class="operation-detail">
+                        Pair: <strong id="operation-pair">-</strong>
+                    </div>
+                    <div class="operation-detail">
+                        Size: <strong id="operation-size">-</strong>
+                    </div>
+                    <div class="operation-detail">
+                        Route: <strong id="operation-route">-</strong>
+                    </div>
+                    <div class="operation-detail">
+                        Expected Edge: <strong id="operation-edge">-</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Conditions -->
+        <div class="card">
+            <h3>⛽ Market Conditions</h3>
+            <div class="metric">
+                <span class="metric-label">Gas Price</span>
+                <span class="metric-value" id="gas-price">0 gwei</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Volatility</span>
+                <span class="metric-value" id="volatility">0%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">MEV Competition</span>
+                <span class="metric-value" id="mev-competition">0%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Network Health</span>
+                <span class="metric-value" id="network-health">Unknown</span>
+            </div>
+            
+            <div id="circuit-breaker-status"></div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="card">
+            <h3>📊 Performance</h3>
+            <div class="metric">
+                <span class="metric-label">Successful Trades</span>
+                <span class="metric-value positive" id="successful-trades">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Failed Trades</span>
+                <span class="metric-value negative" id="failed-trades">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Consecutive Losses</span>
+                <span class="metric-value" id="consecutive-losses">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Best Edge</span>
+                <span class="metric-value" id="best-edge">0 bps</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Average Edge</span>
+                <span class="metric-value" id="average-edge">0 bps</span>
+            </div>
+        </div>
+
+        <!-- Gas Price Chart -->
+        <div class="card gas-chart">
+            <h3>📈 Gas Price History</h3>
+            <div class="chart-container">
+                <canvas id="gas-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- DEX Status -->
+        <div class="card">
+            <h3>🔄 DEX Status</h3>
+            <div class="dex-status" id="dex-status">
+                <div class="loading">
+                    <div class="spinner"></div> Loading...
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Trades -->
+        <div class="card">
+            <h3>💰 Recent Trades</h3>
+            <div class="trades-list" id="recent-trades">
+                <div class="loading">
+                    <div class="spinner"></div> Loading trades...
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Opportunities -->
+        <div class="card">
+            <h3>🎯 Opportunities</h3>
+            <div class="trades-list" id="recent-opportunities">
+                <div class="loading">
+                    <div class="spinner"></div> Scanning...
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Log -->
+        <div class="card">
+            <h3>⚠️ Recent Errors</h3>
+            <div class="error-log" id="error-log">
+                <div style="text-align: center; color: #6b7280;">No errors logged</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

@@ -9,6 +9,10 @@ dist/
 *.tsbuildinfo
 
 # Docker
+<<<<<<< HEAD
+=======
+.dockerignore
+>>>>>>> fix/ci-oidc-on-origin
 
 # Foundry / Solidity build artifacts
 out/

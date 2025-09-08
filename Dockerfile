@@ -1,5 +1,9 @@
 # Build stage
+<<<<<<< HEAD
 FROM node:22-alpine3.20 AS build
+=======
+FROM node:20-alpine3.20 AS build
+>>>>>>> fix/ci-oidc-on-origin
 RUN apk upgrade --no-cache
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -10,7 +14,11 @@ COPY . .
 RUN npm run build
 
 # Runtime stage: install only production deps and copy dist
+<<<<<<< HEAD
 FROM node:22-alpine3.20
+=======
+FROM node:20-alpine3.20
+>>>>>>> fix/ci-oidc-on-origin
 RUN apk upgrade --no-cache
 WORKDIR /app
 COPY package.json package-lock.json* ./
