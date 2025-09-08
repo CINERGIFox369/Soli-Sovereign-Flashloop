@@ -1,0 +1,85 @@
+# 🏛️ CODEOWNERS - Soli Sovereign Flash-Loop Arbitrage Kit
+# ==========================================================
+# Enterprise-grade code ownership and review requirements
+# This file defines who must review changes to critical components
+
+# 🔐 GLOBAL OWNERSHIP
+# Default: All files require review from core maintainers
+* @CINERGIFox369
+
+# 🏗️ INFRASTRUCTURE & DEPLOYMENT
+# Critical infrastructure changes require architecture review
+/.github/workflows/ @CINERGIFox369
+/infra/ @CINERGIFox369
+/Dockerfile @CINERGIFox369
+/docker-compose*.yml @CINERGIFox369
+/.dockerignore @CINERGIFox369
+/azure.yaml @CINERGIFox369
+
+# 🔒 SECURITY & SECRETS
+# Security-sensitive files require security team approval
+/.github/SECRETS.md @CINERGIFox369
+/SECURITY.md @CINERGIFox369
+/SECURITY_ROTATION.md @CINERGIFox369
+*.env* @CINERGIFox369
+/src/azure-keyvault.ts @CINERGIFox369
+
+# 💰 SMART CONTRACTS
+# All contract changes require thorough security review
+/contracts/ @CINERGIFox369
+/script/ @CINERGIFox369
+/test/ @CINERGIFox369
+foundry.toml @CINERGIFox369
+
+# 🎯 ARBITRAGE CORE LOGIC
+# Business logic requires careful review
+/src/index.js @CINERGIFox369
+/script/keeper.ts @CINERGIFox369
+/sim/ @CINERGIFox369
+
+# 📋 CONFIGURATION FILES
+# Configuration changes need validation
+package.json @CINERGIFox369
+tsconfig.json @CINERGIFox369
+host.json @CINERGIFox369
+local.settings.json @CINERGIFox369
+
+# 📚 DOCUMENTATION
+# Documentation updates for accuracy
+/README*.md @CINERGIFox369
+/docs/ @CINERGIFox369
+/DEPLOYMENT*.md @CINERGIFox369
+
+# 🔧 BUILD & OPTIMIZATION
+# Build configuration requires technical review
+/size_optimizer.py @CINERGIFox369
+/deploy.* @CINERGIFox369
+/test-deploy.* @CINERGIFox369
+
+# 🚀 DEPLOYMENT SCRIPTS
+# Deployment automation requires careful review
+/deploy.ps1 @CINERGIFox369
+/deploy.sh @CINERGIFox369
+/test-deploy.ps1 @CINERGIFox369
+/test-deploy.sh @CINERGIFox369
+
+# ⚡ EMERGENCY OVERRIDES
+# For critical production fixes, allow single approval
+# (Remove these lines for stricter control)
+/logs/ @CINERGIFox369
+/cache/ @CINERGIFox369
+/broadcast/ @CINERGIFox369
+
+# 🏆 ENTERPRISE GOVERNANCE
+# ======================
+# This CODEOWNERS file ensures:
+# ✅ All changes are reviewed by qualified maintainers
+# ✅ Security-sensitive files have additional protection  
+# ✅ Smart contracts undergo thorough review
+# ✅ Infrastructure changes are carefully validated
+# ✅ Documentation remains accurate and up-to-date
+#
+# For enterprise deployments, consider adding:
+# - Security team members for /SECURITY.md
+# - DevOps team for /infra/ and /.github/workflows/
+# - Smart contract auditors for /contracts/
