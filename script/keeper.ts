@@ -438,10 +438,32 @@ async function main() {
 
     if (edgeBps > adaptiveThreshold) {
       const now = Math.floor(Date.now() / 1000);
+      // Compute conservative minOut values to protect against slippage.
+      const minOutSlippageBps = Number(process.env.MIN_OUT_SLIPPAGE_BPS || 100); // default 100 bps = 1%
+      let v3MinOut = 0n;
+      let v2MinOut = 0n;
+      try {
+        if (v3Out) {
+          // minOut for v3 leg: apply slippage margin
+          v3MinOut = (v3Out * BigInt(Math.max(0, 10000 - minOutSlippageBps))) / 10000n;
+          // expected amounts from v2 router for v3Out => compute conservative min
+          try {
+            const v2Amounts: bigint[] = await v2Router.getAmountsOut(v3Out, [V3_OUT, V3_IN]);
+            const v2Expected = v2Amounts[v2Amounts.length - 1] as bigint;
+            v2MinOut = (v2Expected * BigInt(Math.max(0, 10000 - minOutSlippageBps))) / 10000n;
+          } catch (e) {
+            v2MinOut = 0n;
+          }
+        }
+      } catch (e) {
+        v3MinOut = 0n;
+        v2MinOut = 0n;
+      }
+
       const ap = [
         true,
-        [V3_IN, V3_OUT, V3_FEE, 0n],
-        [[V3_OUT, V3_IN], 0n],
+        [V3_IN, V3_OUT, V3_FEE, v3MinOut],
+        [[V3_OUT, V3_IN], v2MinOut],
         0n,
         BigInt(now + 60)
       ] as const;

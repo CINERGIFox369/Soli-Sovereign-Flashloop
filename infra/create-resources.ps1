@@ -19,7 +19,13 @@ az monitor log-analytics workspace create -g $rgName -n $lawName
 $lawId = az monitor log-analytics workspace show -g $rgName -n $lawName --query id -o tsv
 
 Write-Output "Creating Container Apps environment $acaEnvName"
-az containerapp env create -g $rgName -n $acaEnvName --logs-workspace-id $lawId
+try {
+  az containerapp env create -g $rgName -n $acaEnvName --logs-workspace-id $lawId --location $location | Out-Host
+} catch {
+  Write-Warning "az containerapp env create failed; falling back to ARM template deployment using apiVersion 2024-03-01"
+  $templatePath = Join-Path $PSScriptRoot 'managed-environment.json'
+  az deployment group create --resource-group $rgName --name managedEnvTemplate --template-file $templatePath --parameters envName=$acaEnvName location=$location lawResourceId=$lawId -o json | Out-Host
+}
 
 Write-Output "Creating Container App $containerAppName (placeholder image)"
 az containerapp create -g $rgName -n $containerAppName --environment $acaEnvName --image mcr.microsoft.com/oss/nodejs/node:20-alpine --cpu 0.5 --memory 1.0 --ingress 'disabled'

@@ -7,34 +7,75 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+  # Expected repository secrets/variables (define these in Settings > Secrets and variables):
+  # - secrets.ACR_NAME
+  # - secrets.AZURE_CLIENT_ID
+  # - secrets.AZURE_CLIENT_SECRET
+  # - secrets.AZURE_TENANT_ID
+  # - vars.AZURE_SUBSCRIPTION_ID (or set as secret)
+  # - secrets.CONTAINERAPP_NAME
+  # - secrets.RESOURCE_GROUP
     permissions:
       id-token: write
       contents: read
-    env:
-      IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/soli-keeper:${{ github.sha }}
-      REGISTRY_LOGIN_SERVER: ${{ secrets.ACR_NAME }}.azurecr.io
+    # Environment variables are resolved dynamically in the 'Resolve ACR variables' step.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Fetch secrets from Key Vault
+        run: |
+          PRIVATE_KEY=$(az keyvault secret show --vault-name soli-mainnet-kv --name PRIVATE-KEY --query value -o tsv)
+          GAS_WALLETS=$(az keyvault secret show --vault-name soli-mainnet-kv --name GAS-WALLETS --query value -o tsv)
+          TELEGRAM_BOT_TOKEN=$(az keyvault secret show --vault-name soli-mainnet-kv --name TELEGRAM-BOT-TOKEN --query value -o tsv)
+          TELEGRAM_CHAT_ID=$(az keyvault secret show --vault-name soli-mainnet-kv --name TELEGRAM-CHAT-ID --query value -o tsv)
+          echo "PRIVATE_KEY=$PRIVATE_KEY" >> $GITHUB_ENV
+          echo "GAS_WALLETS=$GAS_WALLETS" >> $GITHUB_ENV
+          echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> $GITHUB_ENV
+          echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> $GITHUB_ENV
+      - name: Resolve ACR variables
+        id: resolve-acr
+        env:
+          # Use secret ACR_NAME (configure under Settings > Secrets and variables > Actions)
+          ACR_NAME_VAR: ${{ secrets.ACR_NAME }}
+        run: |
+          set -euo pipefail
+          ACR_NAME="${ACR_NAME_VAR}"
+          if [ -z "${ACR_NAME}" ]; then
+            echo "ACR_NAME is not set. Define a repository secret named ACR_NAME under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          REGISTRY_LOGIN_SERVER="${ACR_NAME}.azurecr.io"
+          IMAGE_NAME="${REGISTRY_LOGIN_SERVER}/soli-keeper:${{ github.sha }}"
+          # expose values as step outputs (avoid writing secrets to global env)
+          echo "acr=${ACR_NAME}" >> $GITHUB_OUTPUT
+          echo "registry=${REGISTRY_LOGIN_SERVER}" >> $GITHUB_OUTPUT
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          # Use OIDC federated credential configured on the Azure service principal.
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          enable-oidc: true
+
+      - name: Confirm Azure authentication
+        run: |
+          set -euo pipefail
+          # Show authenticated account info to verify the OIDC login succeeded
+          az account show --query '{name:name, id:id, tenantId:tenantId}' -o json || (
+            echo 'Azure login failed. Confirm the service principal has a federated credential for this repo/workflow and that the subscription variable is set.' && exit 1
+          )
+
+  # NOTE: Avoid writing secrets to $GITHUB_ENV or echoing them. Use secrets/vars directly in the azure/login step below.
+
+      - name: ACR login
+        run: az acr login --name ${{ steps.resolve-acr.outputs.acr }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-
-      - name: Azure Docker login (az acr login)
-        run: az acr login --name ${{ secrets.ACR_NAME }}
-
-      - name: Azure Docker login (docker action)
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
 
       - name: Build and push image
         uses: docker/build-push-action@v5
@@ -42,19 +83,37 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}
+          tags: ${{ steps.resolve-acr.outputs.image }}
 
       - name: Deploy to Azure Container App (update)
-        env:
-          IMAGE: ${{ env.IMAGE_NAME }}
         run: |
-          # Ensure az containerapp extension is available
+          set -euo pipefail
+          IMAGE="${{ steps.resolve-acr.outputs.image }}"
+          CONTAINERAPP_NAME="${CONTAINERAPP_NAME:-soli-keeper}"
+          RESOURCE_GROUP="${RESOURCE_GROUP:-main}"
           az extension add --name containerapp || true
-          # Login already provided by azure/login
-          az containerapp update --name ${{ secrets.CONTAINERAPP_NAME }} --resource-group ${{ secrets.RESOURCE_GROUP }} --image $IMAGE || (
+          az containerapp update --name "$CONTAINERAPP_NAME" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" || (
             echo 'Container App update failed; you may need to create the container app first' && exit 1
           )
 
+      - name: Smoke test container app
+        run: |
+          set -euo pipefail
+          IMAGE="${{ steps.resolve-acr.outputs.image }}"
+          CONTAINERAPP_NAME="${CONTAINERAPP_NAME:-soli-keeper}"
+          RESOURCE_GROUP="${RESOURCE_GROUP:-main}"
+          # Query the container app's configured image and ensure it matches the just-pushed image
+          deployedImage=$(az containerapp show --name "$CONTAINERAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "properties.template.containers[0].image" -o tsv)
+          if [ -z "$deployedImage" ]; then
+            echo 'Failed to read deployed image from container app' && exit 1
+          fi
+          if [ "$deployedImage" != "$IMAGE" ]; then
+            echo "Deployed image mismatch: expected $IMAGE but found $deployedImage" && exit 1
+          fi
+          echo 'Smoke test passed: deployed image matches.'
+
       - name: Notify deployment
-        run: echo "Deployed ${{ env.IMAGE_NAME }} to Container App ${{ secrets.CONTAINERAPP_NAME }}"
+        run: |
+          IMAGE="${{ steps.resolve-acr.outputs.image }}"
+          CONTAINERAPP_NAME="${CONTAINERAPP_NAME:-soli-keeper}"
+          echo "Deployed $IMAGE to Container App $CONTAINERAPP_NAME"
