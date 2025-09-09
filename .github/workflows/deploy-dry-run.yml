@@ -62,46 +62,37 @@ jobs:
           
       - name: 🚀 Deploy Container App (DRY RUN MODE)
         run: |
-          # Check if container app exists
+          # Delete existing container app to recreate with proper authentication
           if az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} &>/dev/null; then
-            echo "Updating existing container app..."
-            az containerapp update \
+            echo "Deleting existing container app to recreate with proper ACR authentication..."
+            az containerapp delete \
               --name soli-keeper-dry \
               --resource-group ${{ secrets.RESOURCE_GROUP }} \
-              --image ${{ env.IMAGE_NAME }} \
-              --set-env-vars \
-                "DRY_RUN=true" \
-                "AZURE_KEY_VAULT_URL=https://soli-mainnet-kv.vault.azure.net/" \
-                "NETWORK_ID=42161" \
-                "RPC_URL=https://arb1.arbitrum.io/rpc" \
-                "MIN_EDGE_BPS=150" \
-                "MAX_DAILY_LOSS=100" \
-                "AAVE_LOAN_FRACTION=0.01" \
-                "CONFIRM_REAL=false"
-          else
-            echo "Creating new container app in DRY RUN mode..."
-            az containerapp create \
-              --name soli-keeper-dry \
-              --resource-group ${{ secrets.RESOURCE_GROUP }} \
-              --environment soli-env \
-              --image ${{ env.IMAGE_NAME }} \
-              --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
-              --registry-identity system \
-              --cpu 1.0 \
-              --memory 2.0Gi \
-              --min-replicas 1 \
-              --max-replicas 3 \
-              --system-assigned \
-              --env-vars \
-                "DRY_RUN=true" \
-                "AZURE_KEY_VAULT_URL=https://soli-mainnet-kv.vault.azure.net/" \
-                "NETWORK_ID=42161" \
-                "RPC_URL=https://arb1.arbitrum.io/rpc" \
-                "MIN_EDGE_BPS=150" \
-                "MAX_DAILY_LOSS=100" \
-                "AAVE_LOAN_FRACTION=0.01" \
-                "CONFIRM_REAL=false"
+              --yes
           fi
+          
+          echo "Creating new container app in DRY RUN mode..."
+          az containerapp create \
+            --name soli-keeper-dry \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --environment soli-env \
+            --image ${{ env.IMAGE_NAME }} \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-identity system \
+            --cpu 1.0 \
+            --memory 2.0Gi \
+            --min-replicas 1 \
+            --max-replicas 3 \
+            --system-assigned \
+            --env-vars \
+              "DRY_RUN=true" \
+              "AZURE_KEY_VAULT_URL=https://soli-mainnet-kv.vault.azure.net/" \
+              "NETWORK_ID=42161" \
+              "RPC_URL=https://arb1.arbitrum.io/rpc" \
+              "MIN_EDGE_BPS=150" \
+              "MAX_DAILY_LOSS=100" \
+              "AAVE_LOAN_FRACTION=0.01" \
+              "CONFIRM_REAL=false"
           
       - name: 🔗 Assign Managed Identity to Key Vault
         run: |
