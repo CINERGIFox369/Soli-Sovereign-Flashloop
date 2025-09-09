@@ -1,9 +1,16 @@
-name: Deploy with User-assigned Managed Identity
+name: Build and Deploy with User-assigned Managed Identity
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
+    paths:
+      - 'script/**'
+      - 'src/**'
+      - 'contracts/**'
+      - 'Dockerfile'
+      - 'package.json'
+      - '.github/workflows/deploy-with-managed-identity.yml'
 
 permissions:
   id-token: write
@@ -14,10 +21,9 @@ env:
   CONTAINER_APP_NAME: soli-keeper-dry
   CONTAINER_REGISTRY: solisovereignacr.azurecr.io
   IMAGE_NAME: soli-keeper
-  IMAGE_TAG: 20250904202453
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
@@ -31,13 +37,31 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+    - name: Login to Azure Container Registry
+      run: |
+        az acr login --name ${{ env.CONTAINER_REGISTRY }}
+
+    - name: Generate image tag
+      id: tag
+      run: |
+        # Use date and commit hash for unique tag
+        TAG=$(date +%Y%m%d%H%M%S)-$(echo ${{ github.sha }} | cut -c1-7)
+        echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
+        echo "Full image: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG"
+
+    - name: Build and push Docker image
+      run: |
+        docker build -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.IMAGE_TAG }} .
+        docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.IMAGE_TAG }}
+
     - name: Update Container App Image
       run: |
+        echo "Updating container app with new image..."
         az resource update \
           --ids "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ env.CONTAINER_APP_NAME }}" \
-          --set properties.template.containers[0].image="${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+          --set properties.template.containers[0].image="${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.IMAGE_TAG }}"
         
-        echo "Container app image updated successfully"
+        echo "Container app image updated successfully to: ${{ steps.tag.outputs.IMAGE_TAG }}"
 
     - name: Check Deployment Status
       run: |

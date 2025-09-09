@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Soli Simulator Live</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px }
+    .metric { font-size: 1.2rem; margin: 8px 0 }
+    #log { white-space: pre-wrap; background:#111; color:#0f0; padding:8px; height:200px; overflow:auto }
+  </style>
+ </head>
+<body>
+  <h1>Soli Simulator — Live</h1>
+  <div class="metric">Status: <span id="status">connecting...</span></div>
+  <div class="metric">Run: <span id="run">0</span> / <span id="runs">0</span></div>
+  <div class="metric">Avg events/day: <span id="avgEvents">0</span></div>
+  <div class="metric">Avg successes/day: <span id="avgSuccesses">0</span></div>
+  <div class="metric">Total events: <span id="totalEvents">0</span></div>
+  <div class="metric">Total successes: <span id="totalSuccesses">0</span></div>
+  <h3>Logs</h3>
+  <div id="log"></div>
+
+  <script>
+    const ws = new WebSocket((location.protocol==='https:'?'wss':'ws') + '://' + location.host);
+    const el = id=>document.getElementById(id);
+    ws.onopen = ()=> el('status').textContent = 'connected';
+    ws.onmessage = (ev)=>{
+      try {
+        const d = JSON.parse(ev.data);
+        if (d.type === 'progress'){
+          el('run').textContent = d.run;
+          el('runs').textContent = d.runs;
+          el('avgEvents').textContent = d.avgEvents.toFixed(2);
+          el('avgSuccesses').textContent = d.avgSuccesses.toFixed(2);
+          el('totalEvents').textContent = d.totalEvents;
+          el('totalSuccesses').textContent = d.totalSuccesses;
+        } else if (d.type === 'done'){
+          el('status').textContent = 'done';
+        } else if (d.type === 'log'){
+          el('log').textContent += d.message + '\n';
+        } else if (d.type === 'stderr'){
+          el('log').textContent += '[ERR] ' + d.message + '\n';
+        } else if (d.type === 'info'){
+          el('log').textContent += '[INFO] ' + d.message + '\n';
+        }
+      } catch (e) { el('log').textContent += ev.data + '\n'; }
+    };
+    ws.onclose = ()=> el('status').textContent = 'closed';
+  </script>
+</body>
+</html>
