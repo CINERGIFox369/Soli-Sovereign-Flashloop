@@ -1,0 +1,56 @@
+name: 🔧 Fix ACR Permissions for Container App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-permissions:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      
+    steps:
+      - name: 🔐 Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: 🔧 Fix ACR Pull Permissions
+        run: |
+          # Get the container app's managed identity
+          PRINCIPAL_ID=$(az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --query "identity.principalId" -o tsv)
+          
+          if [ "$PRINCIPAL_ID" != "null" ] && [ -n "$PRINCIPAL_ID" ]; then
+            echo "Found managed identity: $PRINCIPAL_ID"
+            echo "Assigning AcrPull role..."
+            
+            # Assign AcrPull role with correct scope
+            az role assignment create \
+              --assignee-object-id $PRINCIPAL_ID \
+              --assignee-principal-type ServicePrincipal \
+              --role "AcrPull" \
+              --scope "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
+              
+            echo "✅ ACR Pull permissions assigned successfully"
+            echo "Restarting container app to pick up new permissions..."
+            
+            # Restart the container app to pick up new permissions
+            az containerapp revision restart \
+              --name soli-keeper-dry \
+              --resource-group ${{ secrets.RESOURCE_GROUP }}
+              
+            echo "✅ Container app restarted"
+          else
+            echo "❌ No managed identity found for container app"
+            exit 1
+          fi
+          
+      - name: ✅ Verification Summary
+        run: |
+          echo "🎉 ACR permissions fix complete!"
+          echo "📊 Container App: soli-keeper-dry"
+          echo "🔑 Managed Identity has AcrPull permissions"
+          echo ""
+          echo "🔍 Monitor the deployment:"
+          echo "az containerapp logs show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --follow"
