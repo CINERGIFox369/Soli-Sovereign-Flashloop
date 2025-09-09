@@ -9,10 +9,35 @@ dist/
 *.tsbuildinfo
 
 # Docker
-<<<<<<< HEAD
-=======
 .dockerignore
->>>>>>> fix/ci-oidc-on-origin
+
+# Environment files containing secrets
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*.local
+
+# Private keys and wallets
+*.key
+*.pem
+*.p12
+*.pfx
+keystore/
+wallets/
+
+# Azure secrets and configs  
+azure.conf
+azure-config.json
+.azure/
+
+# Security sensitive files
+scripts/migrate-keys.ts
+docs/AZURE_KEYVAULT_SETUP.md
+docs/SECURITY_APOLOGY.md
+deploy-existing-image.ps1
+update-container-app.json
 
 # Foundry / Solidity build artifacts
 out/
