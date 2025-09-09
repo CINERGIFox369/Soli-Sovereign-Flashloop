@@ -68,7 +68,16 @@ jobs:
             az containerapp update \
               --name soli-keeper-dry \
               --resource-group ${{ secrets.RESOURCE_GROUP }} \
-              --image ${{ env.IMAGE_NAME }}
+              --image ${{ env.IMAGE_NAME }} \
+              --set-env-vars \
+                "DRY_RUN=true" \
+                "AZURE_KEY_VAULT_URL=https://soli-mainnet-kv.vault.azure.net/" \
+                "NETWORK_ID=42161" \
+                "RPC_URL=https://arb1.arbitrum.io/rpc" \
+                "MIN_EDGE_BPS=150" \
+                "MAX_DAILY_LOSS=100" \
+                "AAVE_LOAN_FRACTION=0.01" \
+                "CONFIRM_REAL=false"
           else
             echo "Creating new container app in DRY RUN mode..."
             az containerapp create \
