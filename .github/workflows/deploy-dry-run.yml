@@ -100,35 +100,29 @@ jobs:
           PRINCIPAL_ID=$(az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --query "identity.principalId" -o tsv)
           
           if [ "$PRINCIPAL_ID" != "null" ] && [ -n "$PRINCIPAL_ID" ]; then
+            echo "Found managed identity: $PRINCIPAL_ID"
+            
             echo "Assigning Key Vault permissions to managed identity..."
             az keyvault set-policy \
               --name soli-mainnet-kv \
               --object-id $PRINCIPAL_ID \
               --secret-permissions get list
               
-            echo "Assigning ACR pull permissions to managed identity..."
-            az role assignment create \
-              --assignee $PRINCIPAL_ID \
+            echo "✅ Key Vault permissions assigned"
+            
+            echo "Attempting to assign ACR pull permissions..."
+            if az role assignment create \
+              --assignee-object-id $PRINCIPAL_ID \
+              --assignee-principal-type ServicePrincipal \
               --role "AcrPull" \
-              --scope "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
+              --scope "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}" 2>/dev/null; then
+              echo "✅ ACR Pull permissions assigned successfully"
+            else
+              echo "⚠️ Could not assign ACR permissions automatically"
+              echo "   Please run manually: az role assignment create --assignee $PRINCIPAL_ID --role AcrPull --scope /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
+            fi
           else
-            echo "No managed identity found, enabling it..."
-            az containerapp identity assign \
-              --name soli-keeper-dry \
-              --resource-group ${{ secrets.RESOURCE_GROUP }} \
-              --system-assigned
-              
-            # Get the new identity and assign permissions
-            PRINCIPAL_ID=$(az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --query "identity.principalId" -o tsv)
-            az keyvault set-policy \
-              --name soli-mainnet-kv \
-              --object-id $PRINCIPAL_ID \
-              --secret-permissions get list
-              
-            az role assignment create \
-              --assignee $PRINCIPAL_ID \
-              --role "AcrPull" \
-              --scope "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
+            echo "❌ No managed identity found for container app"
           fi
           
       - name: ✅ Deployment Summary
@@ -139,7 +133,21 @@ jobs:
           echo "🌍 Network: Arbitrum (Chain ID: 42161)"
           echo "🔑 Key Vault: soli-mainnet-kv.vault.azure.net"
           echo ""
+          
+          # Check container app status
+          echo "📋 Container App Status:"
+          az containerapp show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --query "{status: properties.runningStatus, fqdn: properties.configuration.ingress.fqdn, image: properties.template.containers[0].image}" -o table
+          
+          echo ""
           echo "🔍 Monitor the deployment:"
           echo "az containerapp logs show --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }} --follow"
           echo ""
           echo "⚠️  This is a DRY RUN - no real transactions will be executed!"
+          echo ""
+          echo "📝 Next Steps:"
+          if [ -n "$PRINCIPAL_ID" ]; then
+            echo "1. If ACR permissions were not assigned automatically, run:"
+            echo "   az role assignment create --assignee $PRINCIPAL_ID --role AcrPull --scope /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
+            echo "2. Then restart the container app:"
+            echo "   az containerapp revision restart --name soli-keeper-dry --resource-group ${{ secrets.RESOURCE_GROUP }}"
+          fi
