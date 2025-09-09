@@ -1,0 +1,46 @@
+name: Deploy with User-assigned Managed Identity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RESOURCE_GROUP: main
+  CONTAINER_APP_NAME: soli-keeper-dry
+  CONTAINER_REGISTRY: solisovereignacr.azurecr.io
+  IMAGE_NAME: soli-keeper
+  IMAGE_TAG: 20250904202453
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login using OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Update Container App Image
+      run: |
+        az resource update \
+          --ids "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ env.CONTAINER_APP_NAME }}" \
+          --set properties.template.containers[0].image="${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+        
+        echo "Container app image updated successfully"
+
+    - name: Check Deployment Status
+      run: |
+        az resource show \
+          --ids "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ env.CONTAINER_APP_NAME }}" \
+          --query "{status: properties.runningStatus, image: properties.template.containers[0].image, latestRevision: properties.latestRevisionName}"
