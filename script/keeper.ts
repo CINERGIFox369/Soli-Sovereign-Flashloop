@@ -2,10 +2,7 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 import * as dotenv from "dotenv";
-<<<<<<< HEAD
-=======
 import { secureWalletFactory, keyVaultManager } from '../src/azure-keyvault.js';
->>>>>>> fix/ci-oidc-on-origin
 dotenv.config();
 
 // Optional Application Insights integration
@@ -55,38 +52,6 @@ async function main() {
   const RPC = process.env.RPC || process.env.RPC_URL;
   if (!RPC) throw new Error('RPC URL not set in env (RPC or RPC_URL)');
   const provider = new ethers.JsonRpcProvider(RPC);
-<<<<<<< HEAD
-  // Support multiple gas wallets to parallelize nonces and avoid single-signer bottleneck
-  const gasKeys = (process.env.GAS_WALLETS || process.env.PRIVATE_KEY || process.env.PRIV_KEY || "").split(",").map(s => s.trim()).filter(Boolean);
-  let wallets: ethers.Wallet[] = [];
-  if (gasKeys.length === 0) {
-    if (process.env.DRY_RUN === 'true') {
-      console.warn('No gas wallet private keys provided; creating ephemeral wallet for DRY_RUN (no real txs will be sent)');
-      const tmp = ethers.Wallet.createRandom();
-      wallets = [new ethers.Wallet(tmp.privateKey, provider)];
-    } else {
-      throw new Error("No gas wallet private keys found in GAS_WALLETS or PRIVATE_KEY/PRIV_KEY");
-    }
-  } else {
-    const created: ethers.Wallet[] = [];
-    for (const k of gasKeys) {
-      try {
-        created.push(new ethers.Wallet(k, provider));
-      } catch (err) {
-        console.warn('Invalid private key in GAS_WALLETS/PRIVATE_KEY - skipping one entry');
-      }
-    }
-    if (created.length === 0) {
-      if (process.env.DRY_RUN === 'true') {
-        console.warn('All provided private keys invalid; creating ephemeral wallet for DRY_RUN');
-        const tmp = ethers.Wallet.createRandom();
-        wallets = [new ethers.Wallet(tmp.privateKey, provider)];
-      } else {
-        throw new Error('No valid private keys found in GAS_WALLETS or PRIVATE_KEY/PRIV_KEY');
-      }
-    } else {
-      wallets = created;
-=======
   
   // ========================================
   // WALLET CONFIGURATION
@@ -169,9 +134,9 @@ async function main() {
         wallets = created;
         console.log(`⚠️ Loaded ${wallets.length} wallets from environment variables (INSECURE)`);
       }
->>>>>>> fix/ci-oidc-on-origin
     }
   }
+
   let walletIndex = 0;
 
   function nextWallet(): ethers.Wallet {
@@ -434,17 +399,6 @@ async function main() {
     }
   } catch (e) { console.warn('CSV init failed', String(e)); }
 
-<<<<<<< HEAD
-  // Adaptive threshold helper
-  function getActiveEdgeBps(): number {
-    const mode = (process.env.ACTIVE_THRESHOLD_MODE || 'balanced').toLowerCase();
-    switch (mode) {
-      case 'conservative': return Number(process.env.CONSERVATIVE_MIN_EDGE_BPS || 25);
-      case 'aggressive': return Number(process.env.AGGRESSIVE_MIN_EDGE_BPS || 250);
-      case 'whale': return Number(process.env.WHALE_MIN_EDGE_BPS || 500);
-      default: return Number(process.env.BALANCED_MIN_EDGE_BPS || 75);
-    }
-=======
   // Network Detection
   const NETWORK_ID = await provider.getNetwork().then(n => n.chainId.toString());
   const isArbitrum = NETWORK_ID === '42161';
@@ -820,21 +774,10 @@ async function main() {
     if (conditions.currentGas > 100) baseBps *= 1.2; // Higher threshold during gas spikes
     
     return Math.ceil(baseBps);
->>>>>>> fix/ci-oidc-on-origin
   }
 
   async function adjustForGasAndVolatility(baseBps: number): Promise<number> {
     try {
-<<<<<<< HEAD
-      const feeData = await provider.getFeeData();
-      const gasGwei = Number(ethers.formatUnits(feeData.maxFeePerGas || feeData.gasPrice || 0n, 'gwei'));
-      const gasThreshold = Number(process.env.GAS_PRICE_THRESHOLD_GWEI || 50);
-      let adjusted = baseBps;
-      if (gasGwei > gasThreshold) adjusted = Math.ceil(adjusted * Number(process.env.HIGH_GAS_MULTIPLIER || 1.5));
-      // Simple volatility proxy: if TARGET_DAILY_RETURN_RATE is high, be more conservative
-      const vol = Number(process.env.VOLATILITY_MULTIPLIER || 1.0);
-      adjusted = Math.ceil(adjusted * vol);
-=======
       const conditions = marketMonitor.getConditions();
       let adjusted = baseBps;
       
@@ -857,15 +800,12 @@ async function main() {
         adjusted = Math.ceil(adjusted * Math.min(compMultiplier, 2.5)); // Cap at 2.5x
       }
       
->>>>>>> fix/ci-oidc-on-origin
       return adjusted;
     } catch (e) {
       return baseBps;
     }
   }
 
-<<<<<<< HEAD
-=======
   // Enhanced Arbitrage Opportunity Detection with Multi-DEX Support
   async function checkEnhancedArbitrageOpportunities(): Promise<void> {
     logLine("🔍 Enhanced multi-DEX arbitrage scanning initiated");
@@ -1259,7 +1199,6 @@ async function main() {
   }
 
   // Original size-based arbitrage loop (enhanced with circuit breakers)
->>>>>>> fix/ci-oidc-on-origin
   for (const size of sizes) {
     // v3 leg: tokenIn -> tokenOut
     // First try V3 quoter with probing
@@ -1382,8 +1321,6 @@ async function main() {
       }
     }
   }
-<<<<<<< HEAD
-=======
 
   // Enhanced Multi-DEX Arbitrage Check (if original loop didn't find opportunities)
   if (consecutiveLosses > 0) {
@@ -1394,7 +1331,6 @@ async function main() {
       logLine(`❌ Enhanced arbitrage scan error: ${String(enhancedError)}`);
     }
   }
->>>>>>> fix/ci-oidc-on-origin
 }
 
 main().catch((e) => {

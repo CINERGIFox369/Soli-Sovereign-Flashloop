@@ -16,7 +16,7 @@ dotenv.config();
  */
 
 export class AzureKeyVaultManager {
-  private client: SecretClient;
+  private client!: SecretClient;
   private isInitialized: boolean = false;
 
   constructor() {
