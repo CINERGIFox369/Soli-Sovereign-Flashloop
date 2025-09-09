@@ -77,10 +77,12 @@ jobs:
               --environment soli-env \
               --image ${{ env.IMAGE_NAME }} \
               --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+              --registry-identity system \
               --cpu 1.0 \
               --memory 2.0Gi \
               --min-replicas 1 \
               --max-replicas 3 \
+              --system-assigned \
               --env-vars \
                 "DRY_RUN=true" \
                 "AZURE_KEY_VAULT_URL=https://soli-mainnet-kv.vault.azure.net/" \
@@ -103,6 +105,12 @@ jobs:
               --name soli-mainnet-kv \
               --object-id $PRINCIPAL_ID \
               --secret-permissions get list
+              
+            echo "Assigning ACR pull permissions to managed identity..."
+            az role assignment create \
+              --assignee $PRINCIPAL_ID \
+              --role "AcrPull" \
+              --scope "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
           else
             echo "No managed identity found, enabling it..."
             az containerapp identity assign \
@@ -116,6 +124,11 @@ jobs:
               --name soli-mainnet-kv \
               --object-id $PRINCIPAL_ID \
               --secret-permissions get list
+              
+            az role assignment create \
+              --assignee $PRINCIPAL_ID \
+              --role "AcrPull" \
+              --scope "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.RESOURCE_GROUP }}/providers/Microsoft.ContainerRegistry/registries/${{ secrets.ACR_NAME }}"
           fi
           
       - name: ✅ Deployment Summary
