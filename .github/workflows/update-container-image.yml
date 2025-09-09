@@ -1,0 +1,40 @@
+name: 🔄 Update Container App Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-image:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      
+    steps:
+      - name: 🔐 Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: 🔄 Update Container App with Correct Image
+        run: |
+          echo "Updating container app with the correct Soli Keeper image..."
+          az containerapp update \
+            --name soli-keeper-dry \
+            --resource-group main \
+            --image solisovereignacr.azurecr.io/soli-keeper:20250904202453
+            
+          echo "✅ Image updated successfully!"
+          
+      - name: 📊 Check Container App Status
+        run: |
+          echo "🔍 Container App Status:"
+          az containerapp show --name soli-keeper-dry --resource-group main --query "{status: properties.runningStatus, fqdn: properties.configuration.ingress.fqdn, image: properties.template.containers[0].image, revision: properties.latestRevisionName}" -o table
+          
+          echo ""
+          echo "🌐 App URL: https://$(az containerapp show --name soli-keeper-dry --resource-group main --query "properties.configuration.ingress.fqdn" -o tsv)"
+          echo ""
+          echo "📝 Next steps:"
+          echo "1. Monitor logs: az containerapp logs show --name soli-keeper-dry --resource-group main --follow"
+          echo "2. Check the app is running in DRY RUN mode (no real trades)"
+          echo "3. Verify it's monitoring Arbitrum network (Chain ID: 42161)"
