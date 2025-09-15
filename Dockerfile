@@ -17,5 +17,6 @@ COPY package.json package-lock.json* ./
 RUN npm install --only=production
 COPY --from=build /app/dist ./dist
 ENV NODE_ENV=production
-# Default command runs keeper; override in container app args
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 CMD ["node","--enable-source-maps","dist/script/keeper.js"]
