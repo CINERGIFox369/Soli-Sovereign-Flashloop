@@ -73,7 +73,7 @@ jobs:
     - name: Set container app secrets from Key Vault
       run: |
        az containerapp secret set \
-       --name $CONTAINER_APP_NAME \
+       --name soli-keeper \
        --resource-group $RESOURCE_GROUP \
        --secrets solisovereignacrazurecrio-solisovereignacr="{\"keyVaultUrl\":\"<KEYVAULT_URL>\",\"identity\":\"<MANAGED_IDENTITY_RESOURCE_ID>\"}"
 
