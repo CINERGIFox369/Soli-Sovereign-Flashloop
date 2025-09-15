@@ -63,6 +63,20 @@ jobs:
         
         echo "Container app image updated successfully to: ${{ steps.tag.outputs.IMAGE_TAG }}"
 
+    - name: Set container app secrets
+      run: |
+       az containerapp secret set \
+       --name $CONTAINER_APP_NAME \
+       --resource-group $RESOURCE_GROUP \
+       --secrets solisovereignacrazurecrio-solisovereignacr=<SECRET_VALUE>
+
+    - name: Set container app secrets from Key Vault
+      run: |
+       az containerapp secret set \
+       --name $CONTAINER_APP_NAME \
+       --resource-group $RESOURCE_GROUP \
+       --secrets solisovereignacrazurecrio-solisovereignacr="{\"keyVaultUrl\":\"<KEYVAULT_URL>\",\"identity\":\"<MANAGED_IDENTITY_RESOURCE_ID>\"}"
+
     - name: Check Deployment Status
       run: |
         az resource show \
