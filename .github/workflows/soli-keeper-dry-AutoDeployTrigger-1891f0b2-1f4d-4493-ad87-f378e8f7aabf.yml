@@ -4,46 +4,47 @@ name: Trigger auto deployment for soli-keeper-dry
 on:
   # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
+    branches:
+      - main
     paths:
-    - '**'
-    - '.github/workflows/soli-keeper-dry-AutoDeployTrigger-1891f0b2-1f4d-4493-ad87-f378e8f7aabf.yml'
+      - '**'
+      - '.github/workflows/soli-keeper-dry-AutoDeployTrigger-1891f0b2-1f4d-4493-ad87-f378e8f7aabf.yml'
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
-    permissions: 
-      id-token: write #This is required for requesting the OIDC JWT Token
-      contents: read #Required when GH token is used to authenticate with private repo
+    permissions:
+      id-token: write # This is required for requesting the OIDC JWT Token
+      contents: read # Required when GH token is used to authenticate with private repo
+      packages: write # required to push to GHCR
 
     steps:
       - name: Checkout to the branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Azure Login
-        uses: azure/login@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          client-id: ${{ secrets.SOLIKEEPERDRY_AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.SOLIKEEPERDRY_AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.SOLIKEEPERDRY_AZURE_SUBSCRIPTION_ID }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push container image to registry
-        uses: azure/container-apps-deploy-action@v2
+      - name: Build and push image to GHCR
+        uses: docker/build-push-action@v5
         with:
-          appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
-          registryUrl: solisovereignacr.azurecr.io
-          registryUsername: ${{ secrets.SOLIKEEPERDRY_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.SOLIKEEPERDRY_REGISTRY_PASSWORD }}
-          containerAppName: soli-keeper-dry
-          resourceGroup: main
-          imageToBuild: solisovereignacr.azurecr.io/soli-keeper-dry:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
-
-
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/soli-keeper-dry:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/soli-keeper-dry:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/soli-keeper-dry:latest
+          cache-to: type=registry,mode=max,ref=ghcr.io/${{ github.repository_owner }}/soli-keeper-dry:cache
