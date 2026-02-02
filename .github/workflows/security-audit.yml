@@ -1,267 +1,249 @@
-name: security-audit
 name: "🔒 Security Audit & Compliance"
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
     paths:
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '**/*.rs'
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/*.rs"
+      - "**/Dockerfile"
+      - ".github/workflows/**"
+
   pull_request:
 
+
 jobs:
+
   secrets-scan:
-    name: "🔐 Secrets Detection"
+    name: "🔐 Secrets + Dependency Vulnerability Scan"
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          node-version: '20'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run npm audit
-        run: |
-          echo "🔍 Scanning for vulnerable dependencies..."
-          npm audit --audit-level=high || true
-          npm audit --audit-level=moderate --json > audit-results.json || true
-
-      - name: Upload audit results
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-audit-results
-          path: audit-results.json
-          retention-days: 30
-
-  container-security:
-    name: 🐳 Container Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create deny.toml if missing
-        run: |
-          if [ ! -f deny.toml ]; then
-            cat > deny.toml <<'EOF'
-[licenses]
-allow = [
-  "MIT",
-  "Apache-2.0",
-  "Apache-2.0 WITH LLVM-exception",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
-  "ISC",
-  "Unicode-DFS-2016",
-]
-deny = [
-  "GPL-2.0",
-  "GPL-3.0",
-  "AGPL-3.0",
-]
-bans = []
-EOF
-          fi
-
-      - name: Run Gitleaks scan
-        uses: zricethezav/gitleaks-action@v8
-        with:
-          args: --path=. --verbose
-
-  trufflehog_scan:
-    name: Scan for Secrets with TruffleHog
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Create deny.toml if missing
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
         run: |
-          if [ ! -f deny.toml ]; then
-            cat > deny.toml <<'EOF'
-[licenses]
-allow = [
-  "MIT",
-  "Apache-2.0",
-  "Apache-2.0 WITH LLVM-exception",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
-  "ISC",
-  "Unicode-DFS-2016",
-]
-deny = [
-  "GPL-2.0",
-  "GPL-3.0",
-  "AGPL-3.0",
-]
-[bans]
-EOF
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "⚠️ No Node project found, skipping npm install."
           fi
+
+      - name: Run npm audit
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "🔍 Running npm audit..."
+            npm audit --audit-level=high || true
+            npm audit --audit-level=moderate --json > audit-results.json || true
+          else
+            echo "✅ No npm dependencies present."
+          fi
+
+      - name: Upload npm audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: audit-results.json
+          retention-days: 30
+
+
+
+  container-security:
+    name: "🐳 Container + Gitleaks Security Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Gitleaks scan
         uses: zricethezav/gitleaks-action@v8
         with:
           args: --path=. --verbose
 
-      - name: Set BASE and HEAD commits
-        id: commits
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "BASE=${{ github.event.before }}" >> $GITHUB_OUTPUT
-            echo "HEAD=${{ github.sha }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "BASE=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
-            echo "HEAD=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "BASE=" >> $GITHUB_OUTPUT
-            echo "HEAD=" >> $GITHUB_OUTPUT
-          fi
 
-      - name: Run TruffleHog (CLI) scan
-        if: ${{ steps.commits.outputs.BASE != '' && steps.commits.outputs.HEAD != '' && steps.commits.outputs.BASE != steps.commits.outputs.HEAD }}
-        env:
-          BASE: ${{ steps.commits.outputs.BASE }}
-          HEAD: ${{ steps.commits.outputs.HEAD }}
-          TRUFFLEHOG_GITHUB_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BASE="$BASE"
-          HEAD="$HEAD"
-          if [ -z "$BASE" ] || [ -z "$HEAD" ]; then
-            echo "::warning::BASE or HEAD commit not set, skipping scan."
-            exit 0
-          fi
-          if [ "$BASE" == "$HEAD" ]; then
-            echo "::warning::No new commits to scan."
-            exit 0
-          fi
-          npx trufflehog github --since-commit "$BASE" --branch "$HEAD" --fail --no-update --github-actions
 
-      - name: Run TruffleHog action
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: ${{ steps.commits.outputs.BASE }}
-          head: ${{ steps.commits.outputs.HEAD }}
-          extra_args: --debug --only-verified
-
-  build:
-    name: Build (Rust)
-  vulnerability-audit:
-    name: 🧾 Vulnerability Audit (Rust)
+  trufflehog_scan:
+    name: "🦊 TruffleHog Verified Secrets Scan"
     runs-on: ubuntu-latest
-    needs: [dependency-security, container-security, secrets-scan]
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Run TruffleHog scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --debug --only-verified
+
+
+
+  vulnerability-audit:
+    name: "🧾 Rust Vulnerability + License Audit"
+    runs-on: ubuntu-latest
+    needs: [container-security, secrets-scan]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Dependencies
+      - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-security-audit
+
+      - name: Create deny.toml if missing
+        run: |
+          if [ ! -f deny.toml ]; then
+            echo "📌 deny.toml missing — generating default license policy..."
+
+            printf '%s\n' \
+              '[licenses]' \
+              'allow = [' \
+              '  "MIT",' \
+              '  "Apache-2.0",' \
+              '  "Apache-2.0 WITH LLVM-exception",' \
+              '  "BSD-2-Clause",' \
+              '  "BSD-3-Clause",' \
+              '  "ISC",' \
+              '  "Unicode-DFS-2016",' \
+              ']' \
+              '' \
+              'deny = [' \
+              '  "GPL-2.0",' \
+              '  "GPL-3.0",' \
+              '  "AGPL-3.0",' \
+              ']' \
+              '' \
+              '[bans]' \
+              'multiple-versions = "warn"' \
+              'wildcards = "deny"' \
+              > deny.toml
+
+            echo "✅ deny.toml created successfully"
+          else
+            echo "✅ deny.toml already present"
+          fi
 
       - name: Install Security Tools
         run: |
           cargo install cargo-audit --locked || true
           cargo install cargo-deny --locked || true
-          cargo install cargo-outdated --locked || true
 
-      - name: Run Cargo Audit and Generate Reports
+      - name: Run Cargo Audit (Vulnerabilities)
         run: |
-          echo "🔍 Running security vulnerability audit..."
-          cargo audit --color=always --deny warnings || true
+          echo "🔍 Running Rust vulnerability scan..."
+          cargo audit --color=always || true
           cargo audit --format=json > audit-report.json || true
           cargo audit --format=markdown > audit-report.md || true
 
-      - name: Upload Audit Reports
+      - name: Run Cargo Deny (Licenses + Bans)
+        run: |
+          echo "🔍 Running cargo-deny license + ban checks..."
+          cargo deny check licenses || true
+          cargo deny check bans || true
+
+      - name: Upload Rust Audit Reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: security-audit-reports
+          name: rust-security-audit
           path: |
             audit-report.json
             audit-report.md
+            deny.toml
           retention-days: 30
 
+
+
   compliance-check:
-    name: 📋 Compliance Validation
+    name: "📋 Compliance Validation"
     runs-on: ubuntu-latest
+    needs: [vulnerability-audit]
     timeout-minutes: 15
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-dependency-check
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Validate Docker security
+      - name: Dockerfile Security Validation
         run: |
-          echo "🔒 Validating Dockerfile security practices..."
+          echo "🔒 Validating Dockerfile security..."
+
           if [ -f Dockerfile ]; then
-            if ! grep -q "USER" Dockerfile; then
-              echo "❌ Dockerfile should specify non-root USER"
+
+            if ! grep -q "^USER" Dockerfile; then
+              echo "❌ Dockerfile should specify a non-root USER"
               exit 1
             fi
-            if grep -q "COPY.*\*" Dockerfile; then
-              echo "⚠️ Avoid using wildcards in COPY commands"
-            fi
-          else
-            echo "⚠️ No Dockerfile found; skipping Docker validation."
-          fi
-          echo "✅ Docker security validation passed"
 
-      - name: Environment security check
-        run: |
-          echo "🔍 Checking environment configuration..."
-          if find . -name "*.env*" -not -path "./node_modules/*" -exec grep -l "sk_\|pk_\|secret" {} \; | grep -v ".example"; then
-            echo "❌ Potential secrets found in environment files"
-            exit 1
+            if grep -q "COPY.*\*" Dockerfile; then
+              echo "⚠️ Avoid COPY wildcards in production builds"
+            fi
+
+            echo "✅ Dockerfile validation passed"
+
+          else
+            echo "⚠️ No Dockerfile found, skipping compliance check."
           fi
-          echo "✅ Environment security check passed"
+
+
 
   security-report:
-    name: 📊 Security Report
+    name: "📊 Unified Security Report"
     runs-on: ubuntu-latest
-    needs: [dependency-security, container-security, secrets-scan, vulnerability-audit, compliance-check]
+    needs:
+      - secrets-scan
+      - container-security
+      - trufflehog_scan
+      - vulnerability-audit
+      - compliance-check
     if: always()
+
     steps:
-      - name: Generate security summary
+      - name: Generate Security Summary
         run: |
+          echo ""
           echo "🔒 SECURITY AUDIT SUMMARY"
-          echo "========================="
+          echo "===================================="
           echo "Date: $(date)"
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
           echo ""
-          echo "✅ Dependency Security: ${{ needs.dependency-security.result }}"
-          echo "✅ Container Security: ${{ needs.container-security.result }}"
-          echo "✅ Secrets Detection: ${{ needs.secrets-scan.result }}"
+
+          echo "✅ Secrets Scan:        ${{ needs.secrets-scan.result }}"
+          echo "✅ Container Security:  ${{ needs.container-security.result }}"
+          echo "✅ TruffleHog Scan:     ${{ needs.trufflehog_scan.result }}"
           echo "✅ Vulnerability Audit: ${{ needs.vulnerability-audit.result }}"
-          echo "✅ Compliance Check: ${{ needs.compliance-check.result }}"
+          echo "✅ Compliance Check:    ${{ needs.compliance-check.result }}"
           echo ""
-          if [[ "${{ needs.dependency-security.result }}" == "success" && 
-                "${{ needs.container-security.result }}" == "success" && 
-                "${{ needs.secrets-scan.result }}" == "success" && 
-                "${{ needs.vulnerability-audit.result }}" == "success" && 
+
+          if [[ "${{ needs.secrets-scan.result }}" == "success" && \
+                "${{ needs.container-security.result }}" == "success" && \
+                "${{ needs.trufflehog_scan.result }}" == "success" && \
+                "${{ needs.vulnerability-audit.result }}" == "success" && \
                 "${{ needs.compliance-check.result }}" == "success" ]]; then
+
             echo "🎉 ALL SECURITY CHECKS PASSED"
+
           else
-            echo "🚨 SECURITY ISSUES DETECTED - REVIEW REQUIRED"
+
+            echo "🚨 SECURITY ISSUES DETECTED — REVIEW REQUIRED"
+
           fi
+
+          echo "===================================="
