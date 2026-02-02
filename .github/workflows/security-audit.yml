@@ -65,7 +65,7 @@ EOF
           fi
 
       - name: Run TruffleHog (CLI) scan
-        if: ${{ and( steps.commits.outputs.BASE, steps.commits.outputs.HEAD, ne(steps.commits.outputs.BASE, steps.commits.outputs.HEAD) ) }}
+        if: ${{ steps.commits.outputs.BASE != '' && steps.commits.outputs.HEAD != '' && steps.commits.outputs.BASE != steps.commits.outputs.HEAD }}
         env:
           BASE: ${{ steps.commits.outputs.BASE }}
           HEAD: ${{ steps.commits.outputs.HEAD }}
