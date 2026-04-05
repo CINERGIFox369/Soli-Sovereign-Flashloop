@@ -1,7 +1,45 @@
-# Code Owners
+# CODEOWNERS
 
-# This is a list of code owners that are responsible for specific paths in the repository.
+## General Ownership
 
-*.env* @SecurityTeam @CINERGIFox369
+# Specifies that the entire repository is owned by the team/project leads.
+* @teamlead1 @teamlead2
 
-# Add additional rules as needed
+## Configuration Files
+
+# Custom configurations.
+/.github/ @devteam1
+
+## Documentation
+
+# Responsible for the repository documentation.
+/docs/ @docteam
+
+## Source Code
+
+# Owners for specific directories in the source code.
+/src/ @devteam2
+
+# Components and utilities ownership
+/src/components/ @componentlead
+/src/utils/ @utilslead
+
+## Tests
+
+# Owners for test files and configurations.
+/tests/ @testteam
+
+## Issues Management
+
+# Responsible for managing and triaging issues.
+/.github/ISSUE_TEMPLATE/ @issueteam
+
+## Review Process
+
+# Specific team members for code reviews.
+/src/**/*.js @reviewer1 @reviewer2
+/src/**/*.py @reviewer3
+
+---
+
+This file outlines the ownership of various parts of the repository, ensuring clarity and accountability in our development process. Please feel free to reach out to the respective owners for inquiries related to their designated areas.
